@@ -219,7 +219,8 @@ while True:
 
     horizontal_mid_point = [(ax + bx) / 2, (ay + by) / 2]
 
-    cv2.circle(frame,(int((horizontal_mid_point[0]+vertical_mid_point[0])/2), int((horizontal_mid_point[1]+vertical_mid_point[1])/2)), 5, (114, 514, 0xA), -1)
+    cross_mid_point = [(horizontal_mid_point[0]+vertical_mid_point[0])/2, (horizontal_mid_point[1]+vertical_mid_point[1])/2]
+    cv2.circle(frame,(int(cross_mid_point[0]), int(cross_mid_point[1])), 5, (255, 255, 0), -1)
 
     cv2.imshow('edges', edges)
     cv2.imshow('frame', frame)
