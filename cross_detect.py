@@ -222,6 +222,9 @@ while True:
     cross_mid_point = [(horizontal_mid_point[0]+vertical_mid_point[0])/2, (horizontal_mid_point[1]+vertical_mid_point[1])/2]
     cv2.circle(frame,(int(cross_mid_point[0]), int(cross_mid_point[1])), 5, (255, 255, 0), -1)
 
+    if (280 < cross_mid_point[0] < 360) and (200 < cross_mid_point[1] < 280):
+        print('cross detected')
+
     cv2.imshow('edges', edges)
     cv2.imshow('frame', frame)
 
