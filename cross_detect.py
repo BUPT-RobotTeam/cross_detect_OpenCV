@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
-from sklearn.cluster import KMeans
 import undistort
-import math
 
 video = cv2.VideoCapture(1)
 img_size = (640, 480)
