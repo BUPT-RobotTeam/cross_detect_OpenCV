@@ -1,18 +1,17 @@
 import cv2
 import numpy as np
 from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
 import undistort
+import math
 
-# video = cv2.VideoCapture(1)
-# img_size = (640, 480)
-# video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
-# video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
-# video.set(cv2.CAP_PROP_FPS, 30)
+video = cv2.VideoCapture(1)
+img_size = (640, 480)
+video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
+video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
+video.set(cv2.CAP_PROP_FPS, 30)
 kernel = np.ones((5, 5), np.uint8)
 
 def pre_processing(frame):
-    # frame = undistort.undistort(undistort.s908_params, frame)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     hsv_low = np.array([108, 36, 141])
     hsv_high = np.array([121, 163, 255])
@@ -35,6 +34,7 @@ def pre_processing(frame):
     ret = cv2.bitwise_not(ret)
     return ret
 
+
 def get_mid_point(slope, intercept):
     x0 = 0
     y0 = intercept + slope * x0
@@ -49,130 +49,23 @@ def get_mid_point(slope, intercept):
     return [(x0 + x1) / 2, (y0 + y1) / 2]
 
 
-frame = cv2.imread('./test.jpg')
-result = pre_processing(frame)
-edges = cv2.Canny(result, 0, 0, apertureSize=3)
-lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
-intercepts_slopes = []
-if lines is not None:
-    for line in lines:
-        rho, theta = line[0]
-        a = np.cos(theta)
-        b = np.sin(theta)
-        x0 = a * rho
-        y0 = b * rho
-        slope = -a / b if b != 0 else np.inf
-        intercept = y0 - slope * x0
-        if slope != np.inf:
-            Kx = a
-            Ky = b
-            C = -intercept*b
-            intercepts_slopes.append((Kx, Ky, C))
-        else:
-            Kx = 1
-            Ky = 0
-            C = -x0
-            intercepts_slopes.append((Kx, Ky, C))
-
-intercepts_slopes = np.array(intercepts_slopes)
-
-if len(intercepts_slopes) > 4:
-    kmeans = KMeans(n_clusters=4).fit(intercepts_slopes)
-    labels = kmeans.labels_
-
-    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255)]  # 不同类别的颜色
-    if lines is not None:
-        line_groups = [[] for _ in range(4)]
-        tags = [False for _ in range(4)]
-        for i, line in enumerate(lines):
-            rho, theta = line[0]
-            a = np.cos(theta)
-            b = np.sin(theta)
-            x0 = a * rho
-            y0 = b * rho
-            slope = -a / b if b != 0 else np.inf
-            intercept = y0 - slope * x0
-            # if i < len(labels):
-            cur_label = labels[i]
-            color = colors[cur_label]
-            x1 = int(x0 + 1000 * (-b))
-            y1 = int(y0 + 1000 * a)
-            x2 = int(x0 - 1000 * (-b))
-            y2 = int(y0 - 1000 * a)
-            cv2.line(frame, (x1, y1), (x2, y2), color, 2)
-            if slope != np.inf:
-                line_groups[cur_label].append([slope, intercept])
-            else:
-                line_groups[cur_label].append([x0, slope])
-                tags[cur_label] = True
-
-        points = []
-
-        if not tags[0]:
-            mean_slope_group1 = np.mean([line[0] for line in line_groups[0]])
-            mean_intercept_group1 = np.mean([line[1] for line in line_groups[0]])
-            print("Group 1: y =", mean_slope_group1, "x +", mean_intercept_group1)
-            x, y = get_mid_point(mean_slope_group1, mean_intercept_group1)
-            points.append([x, y])
-        else:
-            mean_x0_group1 = np.mean([line[0] for line in line_groups[0]])
-            print("Group 1: x =", mean_x0_group1)
-            points.append([mean_x0_group1, 240])
-        if not tags[1]:
-            mean_slope_group2 = np.mean([line[0] for line in line_groups[1]])
-            mean_intercept_group2 = np.mean([line[1] for line in line_groups[1]])
-            print("Group 2: y =", mean_slope_group2, "x +", mean_intercept_group2)
-            x, y = get_mid_point(mean_slope_group2, mean_intercept_group2)
-            points.append([x, y])
-        else:
-            mean_x0_group2 = np.mean([line[0] for line in line_groups[1]])
-            print("Group 2: x =", mean_x0_group2)
-            points.append([mean_x0_group2, 240])
-        if not tags[2]:
-            mean_slope_group3 = np.mean([line[0] for line in line_groups[2]])
-            mean_intercept_group3 = np.mean([line[1] for line in line_groups[2]])
-            print("Group 3: y =", mean_slope_group3, "x +", mean_intercept_group3)
-            x, y = get_mid_point(mean_slope_group3, mean_intercept_group3)
-            points.append([x, y])
-        else:
-            mean_x0_group3 = np.mean([line[0] for line in line_groups[2]])
-            print("Group 3: x =", mean_x0_group3)
-            points.append([mean_x0_group3, 240])
-        if not tags[3]:
-            mean_slope_group4 = np.mean([line[0] for line in line_groups[3]])
-            mean_intercept_group4 = np.mean([line[1] for line in line_groups[3]])
-            print("Group 4: y =", mean_slope_group4, "x +", mean_intercept_group4)
-            x, y = get_mid_point(mean_slope_group4, mean_intercept_group4)
-            points.append([x, y])
-        else:
-            mean_x0_group4 = np.mean([line[0] for line in line_groups[3]])
-            print("Group 4: x =", mean_x0_group4)
-            points.append([mean_x0_group4, 240])
-
-        for point in points:
-            cv2.circle(frame, (int(point[0]), int(point[1])), 5, (0, 0, 0), -1)
-
-        mean_x = np.mean([point[0] for point in points])
-        mean_y = np.mean([point[1] for point in points])
-
-        cv2.circle(frame, (int(mean_x), int(mean_y)), 5, (255, 0, 0), -1)
-
-cv2.imshow('edges', edges)
-cv2.imshow('frame', frame)
-
-cv2.waitKey(0)
+def rad2deg(rad):
+    return rad / np.pi * 180
 
 
-# while True:
-#     _, frame = video.read()
-#     result = pre_processing(frame)
-#     frame = undistort.undistort(undistort.s908_params, frame)
-#     edges = cv2.Canny(result, 0, 0, apertureSize=3)
-#     lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
-#     intercepts_slopes = []
-#     if lines is not None:
-#         for line in lines:
-#             rho, theta = line[0]
+# frame = cv2.imread('./test.jpg')
+# result = pre_processing(frame)
+# edges = cv2.Canny(result, 0, 0, apertureSize=3)
+# lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
+# vertical_lines = []
+# horizontal_lines = []
+# if lines is not None:
+#     for line in lines:
+#         rho, theta = line[0]
+#         theta1 = rad2deg(theta)
+#         print(theta1)
+#         if 120 >= theta1 >= 70:
+#             print("vertical")
 #             a = np.cos(theta)
 #             b = np.sin(theta)
 #             x0 = a * rho
@@ -180,93 +73,181 @@ cv2.waitKey(0)
 #             slope = -a / b if b != 0 else np.inf
 #             intercept = y0 - slope * x0
 #             if slope != np.inf:
-#                 intercepts_slopes.append((intercept, slope))
-#
-#     intercepts_slopes = np.array(intercepts_slopes)
-#
-#     if len(intercepts_slopes) > 4:
-#         kmeans = KMeans(n_clusters=4, random_state=0).fit(intercepts_slopes)
-#         labels = kmeans.labels_
-#
-#         colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255)]  # 不同类别的颜色
-#         if lines is not None:
-#             line_groups = [[] for _ in range(4)]
-#             tags = [False for _ in range(4)]
-#             for i, line in enumerate(lines):
-#                 rho, theta = line[0]
-#                 a = np.cos(theta)
-#                 b = np.sin(theta)
-#                 x0 = a * rho
-#                 y0 = b * rho
-#                 slope = -a / b if b != 0 else np.inf
-#                 intercept = y0 - slope * x0
-#                 if i < len(labels):
-#                     cur_label = labels[i]
-#                     color = colors[cur_label]
-#                     x1 = int(x0 + 1000 * (-b))
-#                     y1 = int(y0 + 1000 * a)
-#                     x2 = int(x0 - 1000 * (-b))
-#                     y2 = int(y0 - 1000 * a)
-#                     cv2.line(frame, (x1, y1), (x2, y2), color, 2)
-#                     if slope != np.inf:
-#                         line_groups[cur_label].append([slope, intercept])
-#                     else:
-#                         line_groups[cur_label].append([x0, slope])
-#                         tags[cur_label] = True
-#
-#             points = []
-#
-#             if not tags[0]:
-#                 mean_slope_group1 = np.mean([line[0] for line in line_groups[0]])
-#                 mean_intercept_group1 = np.mean([line[1] for line in line_groups[0]])
-#                 print("Group 1: y =", mean_slope_group1, "x +", mean_intercept_group1)
-#                 x, y = get_mid_point(mean_slope_group1, mean_intercept_group1)
-#                 points.append([x, y])
+#                 vertical_lines.append([slope, intercept])
+#                 x1 = int(x0 + 1000 * (-b))
+#                 y1 = int(y0 + 1000 * a)
+#                 x2 = int(x0 - 1000 * (-b))
+#                 y2 = int(y0 - 1000 * a)
+#                 cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 0), 2)
 #             else:
-#                 mean_x0_group1 = np.mean([line[0] for line in line_groups[0]])
-#                 print("Group 1: x =", mean_x0_group1)
-#                 points.append([mean_x0_group1, 240])
-#             if not tags[1]:
-#                 mean_slope_group2 = np.mean([line[0] for line in line_groups[1]])
-#                 mean_intercept_group2 = np.mean([line[1] for line in line_groups[1]])
-#                 print("Group 2: y =", mean_slope_group2, "x +", mean_intercept_group2)
-#                 x, y = get_mid_point(mean_slope_group2, mean_intercept_group2)
-#                 points.append([x, y])
+#                 vertical_lines.append([slope, x0])
+#                 cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 0), 2)
+#         elif 0 <= theta1 <= 30 or theta1 >= 150:
+#             print ("horizontal")
+#             a = np.cos(theta)
+#             b = np.sin(theta)
+#             x0 = a * rho
+#             y0 = b * rho
+#             slope = -a / b if b != 0 else np.inf
+#             intercept = y0 - slope * x0
+#             if slope != np.inf:
+#                 horizontal_lines.append([slope, intercept])
+#                 x1 = int(x0 + 1000 * (-b))
+#                 y1 = int(y0 + 1000 * a)
+#                 x2 = int(x0 - 1000 * (-b))
+#                 y2 = int(y0 - 1000 * a)
+#                 cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
 #             else:
-#                 mean_x0_group2 = np.mean([line[0] for line in line_groups[1]])
-#                 print("Group 2: x =", mean_x0_group2)
-#                 points.append([mean_x0_group2, 240])
-#             if not tags[2]:
-#                 mean_slope_group3 = np.mean([line[0] for line in line_groups[2]])
-#                 mean_intercept_group3 = np.mean([line[1] for line in line_groups[2]])
-#                 print("Group 3: y =", mean_slope_group3, "x +", mean_intercept_group3)
-#                 x, y = get_mid_point(mean_slope_group3, mean_intercept_group3)
-#                 points.append([x, y])
-#             else:
-#                 mean_x0_group3 = np.mean([line[0] for line in line_groups[2]])
-#                 print("Group 3: x =", mean_x0_group3)
-#                 points.append([mean_x0_group3, 240])
-#             if not tags[3]:
-#                 mean_slope_group4 = np.mean([line[0] for line in line_groups[3]])
-#                 mean_intercept_group4 = np.mean([line[1] for line in line_groups[3]])
-#                 print("Group 4: y =", mean_slope_group4, "x +", mean_intercept_group4)
-#                 x, y = get_mid_point(mean_slope_group4, mean_intercept_group4)
-#                 points.append([x, y])
-#             else:
-#                 mean_x0_group4 = np.mean([line[0] for line in line_groups[3]])
-#                 print("Group 4: x =", mean_x0_group4)
-#                 points.append([mean_x0_group4, 240])
+#                 horizontal_lines.append([slope, x0])
+#                 cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 255), 2)
 #
-#             for point in points:
-#                 cv2.circle(frame, (int(point[0]), int(point[1])), 5, (0, 0, 0), -1)
+# ax = ay = 0
 #
-#             mean_x = np.mean([point[0] for point in points])
-#             mean_y = np.mean([point[1] for point in points])
+# for line in vertical_lines:
+#     slope, intercept = line
+#     x = y = 0
+#     if slope != np.inf:
+#         x, y = get_mid_point(slope, intercept)
+#     else:
+#         x = intercept
+#         y = 240
 #
-#             cv2.circle(frame, (int(mean_x), int(mean_y)), 5, (255, 0, 0), -1)
+#     ax += x
+#     ay += y
 #
-#     cv2.imshow('edges', edges)
-#     cv2.imshow('frame', frame)
+# ax /= len(vertical_lines)
+# ay /= len(vertical_lines)
 #
-#     if cv2.waitKey(1) & 0xFF == ord('q'):
-#         break
+# cv2.circle(frame, (int(ax), int(ay)), 5, (0, 0, 0), -1)
+#
+# bx = 0
+# by = 0
+#
+# for line in horizontal_lines:
+#     slope, intercept = line
+#     x = y = 0
+#     if slope != np.inf:
+#         x, y = get_mid_point(slope, intercept)
+#     else:
+#         x = intercept
+#         y = 240
+#
+#     bx += x
+#     by += y
+#
+# bx /= len(horizontal_lines)
+# by /= len(horizontal_lines)
+#
+# cv2.circle(frame, (int(bx), int(by)), 5, (0, 0, 255), -1)
+#
+# cv2.circle(frame, (int((ax + bx) / 2), int((ay + by) / 2)), 5, (255, 0, 0), -1)
+#
+# cv2.imshow('edges', edges)
+# cv2.imshow('frame', frame)
+
+# cv2.waitKey(0)
+
+
+while True:
+    _, frame = video.read()
+    frame = undistort.undistort(undistort.s908_params, frame)
+    result = pre_processing(frame)
+    edges = cv2.Canny(result, 0, 0, apertureSize=3)
+    lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
+    vertical_lines = []
+    horizontal_lines = []
+    if lines is not None:
+        for line in lines:
+            rho, theta = line[0]
+            theta1 = rad2deg(theta)
+            print(theta1)
+            if 120 >= theta1 >= 70:
+                print("vertical")
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                slope = -a / b if b != 0 else np.inf
+                intercept = y0 - slope * x0
+                if slope != np.inf:
+                    vertical_lines.append([slope, intercept])
+                    x1 = int(x0 + 1000 * (-b))
+                    y1 = int(y0 + 1000 * a)
+                    x2 = int(x0 - 1000 * (-b))
+                    y2 = int(y0 - 1000 * a)
+                    cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 0), 2)
+                else:
+                    vertical_lines.append([slope, x0])
+                    cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 0), 2)
+            elif 0 <= theta1 <= 30 or theta1 >= 150:
+                print ("horizontal")
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                slope = -a / b if b != 0 else np.inf
+                intercept = y0 - slope * x0
+                if slope != np.inf:
+                    horizontal_lines.append([slope, intercept])
+                    x1 = int(x0 + 1000 * (-b))
+                    y1 = int(y0 + 1000 * a)
+                    x2 = int(x0 - 1000 * (-b))
+                    y2 = int(y0 - 1000 * a)
+                    cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                else:
+                    horizontal_lines.append([slope, x0])
+                    cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 255), 2)
+
+    ax = ay = 0
+
+    if (len(vertical_lines) == 0) or (len(horizontal_lines) == 0):
+        cv2.imshow('edges', edges)
+        cv2.imshow('frame', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        continue
+
+    for line in vertical_lines:
+        slope, intercept = line
+        x = y = 0
+        if slope != np.inf:
+            x, y = get_mid_point(slope, intercept)
+        else:
+            x = intercept
+            y = 240
+
+        ax += x
+        ay += y
+
+    ax /= len(vertical_lines)
+    ay /= len(vertical_lines)
+
+    cv2.circle(frame, (int(ax), int(ay)), 5, (0, 0, 0), -1)
+
+    bx = 0
+    by = 0
+
+    for line in horizontal_lines:
+        slope, intercept = line
+        x = y = 0
+        if slope != np.inf:
+            x, y = get_mid_point(slope, intercept)
+        else:
+            x = intercept
+            y = 240
+
+        bx += x
+        by += y
+
+    bx /= len(horizontal_lines)
+    by /= len(horizontal_lines)
+
+    cv2.circle(frame, (int(bx), int(by)), 5, (0, 0, 255), -1)
+
+    cv2.circle(frame, (int((ax + bx) / 2), int((ay + by) / 2)), 5, (255, 0, 0), -1)
+
+    cv2.imshow('edges', edges)
+    cv2.imshow('frame', frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
