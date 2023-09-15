@@ -2,11 +2,12 @@ import cv2
 import numpy as np
 import undistort
 
+hsv_low = np.array([108, 36, 141])
+hsv_high = np.array([121, 163, 255])
+
 
 def pre_processing(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    hsv_low = np.array([108, 36, 141])
-    hsv_high = np.array([121, 163, 255])
     mask = cv2.inRange(hsv, hsv_low, hsv_high)
     kernel = np.ones((5, 5), np.uint8)
 
@@ -195,7 +196,7 @@ def cross_detect(frame, show_source=False, show_edge=False, need_undistort=False
             len(horizontal_lines[1]) == 0):
         cv2.imshow('edges', edges)
         cv2.imshow('frame', frame)
-        return
+        return None, None
 
     vertical_lines_mid_point = [get_avg_mid_point(vertical_lines[0]), get_avg_mid_point(vertical_lines[1])]
     top_y = min(vertical_lines_mid_point[0][1], vertical_lines_mid_point[1][1])
@@ -227,19 +228,19 @@ def cross_detect(frame, show_source=False, show_edge=False, need_undistort=False
                        (horizontal_mid_point[1] + vertical_mid_point[1]) / 2]
     cv2.circle(frame, (int(cross_mid_point[0]), int(cross_mid_point[1])), 5, (255, 255, 0), -1)
 
-    if (280 < cross_mid_point[0] < 360) and (200 < cross_mid_point[1] < 280):
-        print('cross detected')
-
     if show_edge:
         cv2.imshow('edges', edges)
     if show_source:
         cv2.imshow('frame', frame)
 
+    return cross_mid_point[0], cross_mid_point[1]
+
 
 if __name__ == "__main__":
     choice = input("Mode: \n 1. Photo\n 2. Camera\n")
     if choice == '1':
-        frame = cv2.imread('./test.jpg')
+        path = input("Give the path of the photo:")
+        frame = cv2.imread(path)
         cross_detect(frame, show_source=True, show_edge=True, need_undistort=False)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
