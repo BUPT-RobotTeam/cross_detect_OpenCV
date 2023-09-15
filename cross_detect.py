@@ -139,7 +139,7 @@ def get_avg_mid_point(lines):
     return ax, ay
 
 
-def get_avg_mid_point_with_segment(lines, top, bottom):
+def get_avg_mid_point_with_segment_y(lines, top, bottom):
     ax = ay = 0
     for line in lines:
         slope, intercept = line
@@ -149,6 +149,28 @@ def get_avg_mid_point_with_segment(lines, top, bottom):
             x0 = (y0 - intercept) / slope
             y1 = bottom
             x1 = (y1 - intercept) / slope
+            x = (x0 + x1) / 2
+            y = (y0 + y1) / 2
+        else:
+            x = intercept
+            y = 240
+        ax += x
+        ay += y
+    ax /= len(lines)
+    ay /= len(lines)
+    return ax, ay
+
+
+def get_avg_mid_point_with_segment_x(lines, left, right):
+    ax = ay = 0
+    for line in lines:
+        slope, intercept = line
+        x = y = 0
+        if slope != np.inf:
+            x0 = left
+            y0 = slope * x0 + intercept
+            x1 = right
+            y1 = slope * x1 + intercept
             x = (x0 + x1) / 2
             y = (y0 + y1) / 2
         else:
@@ -171,31 +193,35 @@ def cross_detect(frame, show_source=False, show_edge=False, need_undistort=False
 
     if (len(vertical_lines[0]) == 0) or (len(horizontal_lines[0]) == 0) or (len(vertical_lines[1]) == 0) or (
             len(horizontal_lines[1]) == 0):
-
         cv2.imshow('edges', edges)
         cv2.imshow('frame', frame)
         return
 
     vertical_lines_mid_point = [get_avg_mid_point(vertical_lines[0]), get_avg_mid_point(vertical_lines[1])]
-    cv2.circle(frame, (int(vertical_lines_mid_point[0][0]), int(vertical_lines_mid_point[0][1])),
-               5, (255, 0, 255), -1)
-    cv2.circle(frame, (int(vertical_lines_mid_point[1][0]), int(vertical_lines_mid_point[1][1])),
-               5, (255, 0, 255), -1)
-
     top_y = min(vertical_lines_mid_point[0][1], vertical_lines_mid_point[1][1])
     bottom_y = max(vertical_lines_mid_point[0][1], vertical_lines_mid_point[1][1])
-    vertical_mid_point = [(vertical_lines_mid_point[0][0] + vertical_lines_mid_point[1][0]) / 2,
-                          (vertical_lines_mid_point[0][1] + vertical_lines_mid_point[1][1]) / 2]
 
-    horizontal_lines_mid_point = [get_avg_mid_point_with_segment(horizontal_lines[0], top_y, bottom_y),
-                                  get_avg_mid_point_with_segment(horizontal_lines[1], top_y, bottom_y)]
+    horizontal_lines_mid_point = [get_avg_mid_point_with_segment_y(horizontal_lines[0], top_y, bottom_y),
+                                  get_avg_mid_point_with_segment_y(horizontal_lines[1], top_y, bottom_y)]
     cv2.circle(frame, (int(horizontal_lines_mid_point[0][0]), int(horizontal_lines_mid_point[0][1])),
                5, (0, 255, 255), -1)
     cv2.circle(frame, (int(horizontal_lines_mid_point[1][0]), int(horizontal_lines_mid_point[1][1])),
                5, (0, 255, 255), -1)
 
+    left_x = min(horizontal_lines_mid_point[0][0], horizontal_lines_mid_point[1][0])
+    right_x = max(horizontal_lines_mid_point[0][0], horizontal_lines_mid_point[1][0])
     horizontal_mid_point = [(horizontal_lines_mid_point[0][0] + horizontal_lines_mid_point[1][0]) / 2,
                             (horizontal_lines_mid_point[0][1] + horizontal_lines_mid_point[1][1]) / 2]
+
+    vertical_lines_mid_point = [get_avg_mid_point_with_segment_x(vertical_lines[0], left_x, right_x),
+                                get_avg_mid_point_with_segment_x(vertical_lines[1], left_x, right_x)]
+    cv2.circle(frame, (int(vertical_lines_mid_point[0][0]), int(vertical_lines_mid_point[0][1])),
+               5, (255, 0, 255), -1)
+    cv2.circle(frame, (int(vertical_lines_mid_point[1][0]), int(vertical_lines_mid_point[1][1])),
+               5, (255, 0, 255), -1)
+
+    vertical_mid_point = [(vertical_lines_mid_point[0][0] + vertical_lines_mid_point[1][0]) / 2,
+                          (vertical_lines_mid_point[0][1] + vertical_lines_mid_point[1][1]) / 2]
 
     cross_mid_point = [(horizontal_mid_point[0] + vertical_mid_point[0]) / 2,
                        (horizontal_mid_point[1] + vertical_mid_point[1]) / 2]
@@ -210,7 +236,7 @@ def cross_detect(frame, show_source=False, show_edge=False, need_undistort=False
         cv2.imshow('frame', frame)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     choice = input("Mode: \n 1. Photo\n 2. Camera\n")
     if choice == '1':
         frame = cv2.imread('./test.jpg')
@@ -237,4 +263,3 @@ if __name__=="__main__":
     else:
         print('Invalid input')
         exit(1)
-
