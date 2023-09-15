@@ -5,6 +5,7 @@ import undistort
 hsv_low = np.array([108, 36, 141])
 hsv_high = np.array([121, 163, 255])
 
+cross_width = 50
 
 def pre_processing(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -69,7 +70,7 @@ def divide_lines(frame, lines):
                 intercept = y0 - slope * x0
                 if slope != np.inf:
                     cur_index = 0
-                    if abs(rho - vertical_lines_rho[0]) > 50:
+                    if abs(rho - vertical_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if vertical_lines_cnt[1] == 0:
                             vertical_lines_rho[1] = rho
@@ -82,7 +83,7 @@ def divide_lines(frame, lines):
                     cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 0) if cur_index == 0 else (255, 0, 0), 2)
                 else:
                     cur_index = 0
-                    if abs(rho - vertical_lines_rho[0]) > 50:
+                    if abs(rho - vertical_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if vertical_lines_cnt[1] == 0:
                             vertical_lines_rho[1] = rho
@@ -100,7 +101,7 @@ def divide_lines(frame, lines):
                 intercept = y0 - slope * x0
                 if slope != np.inf:
                     cur_index = 0
-                    if abs(rho - horizontal_lines_rho[0]) > 50:
+                    if abs(rho - horizontal_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if horizontal_lines_cnt[1] == 0:
                             horizontal_lines_rho[1] = rho
@@ -113,7 +114,7 @@ def divide_lines(frame, lines):
                     cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 255) if cur_index == 0 else (0, 255, 0), 2)
                 else:
                     cur_index = 0
-                    if abs(rho - horizontal_lines_rho[0]) > 50:
+                    if abs(rho - horizontal_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if horizontal_lines_cnt[1] == 0:
                             horizontal_lines_rho[1] = rho
