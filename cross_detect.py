@@ -59,7 +59,7 @@ def divide_lines(frame, lines):
         for line in lines:
             rho, theta = line[0]
             theta_deg = rad2deg(theta)
-            if 120 >= theta_deg >= 70:
+            if 120 >= theta_deg >= 60:
                 if vertical_lines_cnt[0] == 0:
                     vertical_lines_rho[0] = rho
                 a = np.cos(theta)
