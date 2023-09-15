@@ -2,12 +2,13 @@ import cv2
 import numpy as np
 import undistort
 
-video = cv2.VideoCapture(1)
-img_size = (640, 480)
-video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
-video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
-video.set(cv2.CAP_PROP_FPS, 30)
+# video = cv2.VideoCapture(1)
+# img_size = (640, 480)
+# video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
+# video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
+# video.set(cv2.CAP_PROP_FPS, 30)
 kernel = np.ones((5, 5), np.uint8)
+
 
 def pre_processing(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -52,22 +53,22 @@ def rad2deg(rad):
 
 
 while True:
-    _, frame = video.read()
-    frame = undistort.undistort(undistort.s908_params, frame)
+    # _, frame = video.read()
+    frame = cv2.imread('./test.jpg')
+    # frame = undistort.undistort(undistort.s908_params, frame)
     result = pre_processing(frame)
     edges = cv2.Canny(result, 0, 0, apertureSize=3)
     lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
-    vertical_lines = [[],[]]
+    vertical_lines = [[], []]
     vertical_lines_cnt = [0, 0]
     vertical_lines_rho = [0, 0]
-    horizontal_lines = [[],[]]
+    horizontal_lines = [[], []]
     horizontal_lines_cnt = [0, 0]
     horizontal_lines_rho = [0, 0]
     if lines is not None:
         for line in lines:
             rho, theta = line[0]
             theta_deg = rad2deg(theta)
-            print(theta_deg)
             if 120 >= theta_deg >= 70:
                 if vertical_lines_cnt[0] == 0:
                     vertical_lines_rho[0] = rho
@@ -89,7 +90,7 @@ while True:
                     y1 = int(y0 + 1000 * a)
                     x2 = int(x0 - 1000 * (-b))
                     y2 = int(y0 - 1000 * a)
-                    cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 0) if cur_index==0 else (255,0,0), 2)
+                    cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 0) if cur_index == 0 else (255, 0, 0), 2)
                 else:
                     cur_index = 0
                     if abs(rho - vertical_lines_rho[0]) > 50:
@@ -98,7 +99,7 @@ while True:
                             vertical_lines_rho[1] = rho
                     vertical_lines[cur_index].append([slope, x0])
                     vertical_lines_cnt[cur_index] += 1
-                    cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 0) if cur_index==0 else (255,0,0) , 2)
+                    cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 0) if cur_index == 0 else (255, 0, 0), 2)
             elif 0 <= theta_deg <= 30 or theta_deg >= 150:
                 if horizontal_lines_cnt[0] == 0:
                     horizontal_lines_rho[0] = rho
@@ -120,20 +121,22 @@ while True:
                     y1 = int(y0 + 1000 * a)
                     x2 = int(x0 - 1000 * (-b))
                     y2 = int(y0 - 1000 * a)
-                    cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 255) if cur_index==0 else (0,255,0), 2)
+                    cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 255) if cur_index == 0 else (0, 255, 0), 2)
                 else:
                     cur_index = 0
                     if abs(rho - horizontal_lines_rho[0]) > 50:
                         cur_index = 1
                         if horizontal_lines_cnt[1] == 0:
                             horizontal_lines_rho[1] = rho
-                    horizontal_lines.append([slope, x0])
+                    horizontal_lines[cur_index].append([slope, x0])
                     horizontal_lines_cnt[cur_index] += 1
-                    cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 255) if cur_index==0 else (0,255,0) , 2)
+                    cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 255) if cur_index == 0 else (0, 255, 0), 2)
 
     ax = ay = 0
 
-    if (len(vertical_lines[0]) == 0) or (len(horizontal_lines[0]) == 0) or (len(vertical_lines[1]) == 0) or (len(horizontal_lines[1]) == 0):
+    if (len(vertical_lines[0]) == 0) or (len(horizontal_lines[0]) == 0) or (len(vertical_lines[1]) == 0) or (
+            len(horizontal_lines[1]) == 0):
+
         cv2.imshow('edges', edges)
         cv2.imshow('frame', frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -155,7 +158,7 @@ while True:
     ax /= len(vertical_lines[0])
     ay /= len(vertical_lines[0])
 
-    cv2.circle(frame,(int(ax), int(ay)), 5, (0, 255, 255), -1)
+    cv2.circle(frame, (int(ax), int(ay)), 5, (0, 255, 255), -1)
 
     bx = 0
     by = 0
@@ -175,8 +178,11 @@ while True:
     bx /= len(vertical_lines[1])
     by /= len(vertical_lines[1])
 
-    cv2.circle(frame,(int(bx), int(by)), 5, (0, 255, 255), -1)
+    cv2.circle(frame, (int(bx), int(by)), 5, (0, 255, 255), -1)
 
+    top_y = min(ay, by)
+    bottom_y = max(ay, by)
+    print(ax, ay, bx, by)
     vertical_mid_point = [(ax + bx) / 2, (ay + by) / 2]
 
     ax = ay = 0
@@ -185,10 +191,15 @@ while True:
         slope, intercept = line
         x = y = 0
         if slope != np.inf:
-            x, y = get_mid_point(slope, intercept)
+            y0 = top_y
+            x0 = (y0 - intercept) / slope
+            y1 = bottom_y
+            x1 = (y1 - intercept) / slope
+            x = (x0 + x1) / 2
+            y = (y0 + y1) / 2
         else:
             x = intercept
-            y = 320
+            y = 240
 
         ax += x
         ay += y
@@ -196,7 +207,7 @@ while True:
     ax /= len(horizontal_lines[0])
     ay /= len(horizontal_lines[0])
 
-    cv2.circle(frame,(int(ax), int(ay)), 5, (255, 0, 255), -1)
+    cv2.circle(frame, (int(ax), int(ay)), 5, (0, 0, 0), -1)
 
     bx = by = 0
 
@@ -204,10 +215,15 @@ while True:
         slope, intercept = line
         x = y = 0
         if slope != np.inf:
-            x, y = get_mid_point(slope, intercept)
+            y0 = top_y
+            x0 = (y0 - intercept) / slope
+            y1 = bottom_y
+            x1 = (y1 - intercept) / slope
+            x = (x0 + x1) / 2
+            y = (y0 + y1) / 2
         else:
             x = intercept
-            y = 320
+            y = 240
 
         bx += x
         by += y
@@ -215,12 +231,14 @@ while True:
     bx /= len(horizontal_lines[1])
     by /= len(horizontal_lines[1])
 
-    cv2.circle(frame,(int(bx), int(by)), 5, (255, 0, 255), -1)
+    cv2.circle(frame, (int(bx), int(by)), 5, (0, 0, 0), -1)
+
 
     horizontal_mid_point = [(ax + bx) / 2, (ay + by) / 2]
 
-    cross_mid_point = [(horizontal_mid_point[0]+vertical_mid_point[0])/2, (horizontal_mid_point[1]+vertical_mid_point[1])/2]
-    cv2.circle(frame,(int(cross_mid_point[0]), int(cross_mid_point[1])), 5, (255, 255, 0), -1)
+    cross_mid_point = [(horizontal_mid_point[0] + vertical_mid_point[0]) / 2,
+                       (horizontal_mid_point[1] + vertical_mid_point[1]) / 2]
+    cv2.circle(frame, (int(cross_mid_point[0]), int(cross_mid_point[1])), 5, (255, 255, 0), -1)
 
     if (280 < cross_mid_point[0] < 360) and (200 < cross_mid_point[1] < 280):
         print('cross detected')
