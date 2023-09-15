@@ -2,19 +2,15 @@ import cv2
 import numpy as np
 import undistort
 
-video = cv2.VideoCapture(1)
-img_size = (640, 480)
-video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
-video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
-video.set(cv2.CAP_PROP_FPS, 30)
-kernel = np.ones((5, 5), np.uint8)
+hsv_low = np.array([108, 36, 141])
+hsv_high = np.array([121, 163, 255])
 
+cross_width = 50
 
 def pre_processing(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    hsv_low = np.array([108, 36, 141])
-    hsv_high = np.array([121, 163, 255])
     mask = cv2.inRange(hsv, hsv_low, hsv_high)
+    kernel = np.ones((5, 5), np.uint8)
 
     erosion = cv2.erode(mask, kernel, iterations=1)
     dilation = cv2.dilate(erosion, kernel, iterations=1)
@@ -52,13 +48,7 @@ def rad2deg(rad):
     return rad / np.pi * 180
 
 
-while True:
-    _, frame = video.read()
-    # frame = cv2.imread('./test.jpg')
-    frame = undistort.undistort(undistort.s908_params, frame)
-    result = pre_processing(frame)
-    edges = cv2.Canny(result, 0, 0, apertureSize=3)
-    lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
+def divide_lines(frame, lines):
     vertical_lines = [[], []]
     vertical_lines_cnt = [0, 0]
     vertical_lines_rho = [0, 0]
@@ -80,7 +70,7 @@ while True:
                 intercept = y0 - slope * x0
                 if slope != np.inf:
                     cur_index = 0
-                    if abs(rho - vertical_lines_rho[0]) > 50:
+                    if abs(rho - vertical_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if vertical_lines_cnt[1] == 0:
                             vertical_lines_rho[1] = rho
@@ -93,7 +83,7 @@ while True:
                     cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 0) if cur_index == 0 else (255, 0, 0), 2)
                 else:
                     cur_index = 0
-                    if abs(rho - vertical_lines_rho[0]) > 50:
+                    if abs(rho - vertical_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if vertical_lines_cnt[1] == 0:
                             vertical_lines_rho[1] = rho
@@ -111,7 +101,7 @@ while True:
                 intercept = y0 - slope * x0
                 if slope != np.inf:
                     cur_index = 0
-                    if abs(rho - horizontal_lines_rho[0]) > 50:
+                    if abs(rho - horizontal_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if horizontal_lines_cnt[1] == 0:
                             horizontal_lines_rho[1] = rho
@@ -124,127 +114,154 @@ while True:
                     cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 255) if cur_index == 0 else (0, 255, 0), 2)
                 else:
                     cur_index = 0
-                    if abs(rho - horizontal_lines_rho[0]) > 50:
+                    if abs(rho - horizontal_lines_rho[0]) > cross_width:
                         cur_index = 1
                         if horizontal_lines_cnt[1] == 0:
                             horizontal_lines_rho[1] = rho
                     horizontal_lines[cur_index].append([slope, x0])
                     horizontal_lines_cnt[cur_index] += 1
                     cv2.line(frame, (int(x0), 0), (int(x0), 480), (0, 0, 255) if cur_index == 0 else (0, 255, 0), 2)
+    return vertical_lines, horizontal_lines
 
+
+def get_avg_mid_point(lines):
     ax = ay = 0
+    for line in lines:
+        slope, intercept = line
+        x = y = 0
+        if slope != np.inf:
+            x, y = get_mid_point(slope, intercept)
+        else:
+            x = intercept
+            y = 240
+        ax += x
+        ay += y
+    ax /= len(lines)
+    ay /= len(lines)
+    return ax, ay
+
+
+def get_avg_mid_point_with_segment_y(lines, top, bottom):
+    ax = ay = 0
+    for line in lines:
+        slope, intercept = line
+        x = y = 0
+        if slope != np.inf:
+            y0 = top
+            x0 = (y0 - intercept) / slope
+            y1 = bottom
+            x1 = (y1 - intercept) / slope
+            x = (x0 + x1) / 2
+            y = (y0 + y1) / 2
+        else:
+            x = intercept
+            y = 240
+        ax += x
+        ay += y
+    ax /= len(lines)
+    ay /= len(lines)
+    return ax, ay
+
+
+def get_avg_mid_point_with_segment_x(lines, left, right):
+    ax = ay = 0
+    for line in lines:
+        slope, intercept = line
+        x = y = 0
+        if slope != np.inf:
+            x0 = left
+            y0 = slope * x0 + intercept
+            x1 = right
+            y1 = slope * x1 + intercept
+            x = (x0 + x1) / 2
+            y = (y0 + y1) / 2
+        else:
+            x = intercept
+            y = 240
+        ax += x
+        ay += y
+    ax /= len(lines)
+    ay /= len(lines)
+    return ax, ay
+
+
+def cross_detect(frame, show_source=False, show_edge=False, need_undistort=False):
+    if need_undistort:
+        frame = undistort.undistort(undistort.s908_params, frame)
+    result = pre_processing(frame)
+    edges = cv2.Canny(result, 0, 0, apertureSize=3)
+    lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
+    vertical_lines, horizontal_lines = divide_lines(frame, lines)
 
     if (len(vertical_lines[0]) == 0) or (len(horizontal_lines[0]) == 0) or (len(vertical_lines[1]) == 0) or (
             len(horizontal_lines[1]) == 0):
-
         cv2.imshow('edges', edges)
         cv2.imshow('frame', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-        continue
+        return None, None
 
-    for line in vertical_lines[0]:
-        slope, intercept = line
-        x = y = 0
-        if slope != np.inf:
-            x, y = get_mid_point(slope, intercept)
-        else:
-            x = intercept
-            y = 240
+    vertical_lines_mid_point = [get_avg_mid_point(vertical_lines[0]), get_avg_mid_point(vertical_lines[1])]
+    top_y = min(vertical_lines_mid_point[0][1], vertical_lines_mid_point[1][1])
+    bottom_y = max(vertical_lines_mid_point[0][1], vertical_lines_mid_point[1][1])
 
-        ax += x
-        ay += y
+    horizontal_lines_mid_point = [get_avg_mid_point_with_segment_y(horizontal_lines[0], top_y, bottom_y),
+                                  get_avg_mid_point_with_segment_y(horizontal_lines[1], top_y, bottom_y)]
+    cv2.circle(frame, (int(horizontal_lines_mid_point[0][0]), int(horizontal_lines_mid_point[0][1])),
+               5, (0, 255, 255), -1)
+    cv2.circle(frame, (int(horizontal_lines_mid_point[1][0]), int(horizontal_lines_mid_point[1][1])),
+               5, (0, 255, 255), -1)
 
-    ax /= len(vertical_lines[0])
-    ay /= len(vertical_lines[0])
+    left_x = min(horizontal_lines_mid_point[0][0], horizontal_lines_mid_point[1][0])
+    right_x = max(horizontal_lines_mid_point[0][0], horizontal_lines_mid_point[1][0])
+    horizontal_mid_point = [(horizontal_lines_mid_point[0][0] + horizontal_lines_mid_point[1][0]) / 2,
+                            (horizontal_lines_mid_point[0][1] + horizontal_lines_mid_point[1][1]) / 2]
 
-    cv2.circle(frame, (int(ax), int(ay)), 5, (0, 255, 255), -1)
+    vertical_lines_mid_point = [get_avg_mid_point_with_segment_x(vertical_lines[0], left_x, right_x),
+                                get_avg_mid_point_with_segment_x(vertical_lines[1], left_x, right_x)]
+    cv2.circle(frame, (int(vertical_lines_mid_point[0][0]), int(vertical_lines_mid_point[0][1])),
+               5, (255, 0, 255), -1)
+    cv2.circle(frame, (int(vertical_lines_mid_point[1][0]), int(vertical_lines_mid_point[1][1])),
+               5, (255, 0, 255), -1)
 
-    bx = 0
-    by = 0
-
-    for line in vertical_lines[1]:
-        slope, intercept = line
-        x = y = 0
-        if slope != np.inf:
-            x, y = get_mid_point(slope, intercept)
-        else:
-            x = intercept
-            y = 240
-
-        bx += x
-        by += y
-
-    bx /= len(vertical_lines[1])
-    by /= len(vertical_lines[1])
-
-    cv2.circle(frame, (int(bx), int(by)), 5, (0, 255, 255), -1)
-
-    top_y = min(ay, by)
-    bottom_y = max(ay, by)
-    print(ax, ay, bx, by)
-    vertical_mid_point = [(ax + bx) / 2, (ay + by) / 2]
-
-    ax = ay = 0
-
-    for line in horizontal_lines[0]:
-        slope, intercept = line
-        x = y = 0
-        if slope != np.inf:
-            y0 = top_y
-            x0 = (y0 - intercept) / slope
-            y1 = bottom_y
-            x1 = (y1 - intercept) / slope
-            x = (x0 + x1) / 2
-            y = (y0 + y1) / 2
-        else:
-            x = intercept
-            y = 240
-
-        ax += x
-        ay += y
-
-    ax /= len(horizontal_lines[0])
-    ay /= len(horizontal_lines[0])
-
-    cv2.circle(frame, (int(ax), int(ay)), 5, (0, 0, 0), -1)
-
-    bx = by = 0
-
-    for line in horizontal_lines[1]:
-        slope, intercept = line
-        x = y = 0
-        if slope != np.inf:
-            y0 = top_y
-            x0 = (y0 - intercept) / slope
-            y1 = bottom_y
-            x1 = (y1 - intercept) / slope
-            x = (x0 + x1) / 2
-            y = (y0 + y1) / 2
-        else:
-            x = intercept
-            y = 240
-
-        bx += x
-        by += y
-
-    bx /= len(horizontal_lines[1])
-    by /= len(horizontal_lines[1])
-
-    cv2.circle(frame, (int(bx), int(by)), 5, (0, 0, 0), -1)
-
-
-    horizontal_mid_point = [(ax + bx) / 2, (ay + by) / 2]
+    vertical_mid_point = [(vertical_lines_mid_point[0][0] + vertical_lines_mid_point[1][0]) / 2,
+                          (vertical_lines_mid_point[0][1] + vertical_lines_mid_point[1][1]) / 2]
 
     cross_mid_point = [(horizontal_mid_point[0] + vertical_mid_point[0]) / 2,
                        (horizontal_mid_point[1] + vertical_mid_point[1]) / 2]
     cv2.circle(frame, (int(cross_mid_point[0]), int(cross_mid_point[1])), 5, (255, 255, 0), -1)
 
-    if (280 < cross_mid_point[0] < 360) and (200 < cross_mid_point[1] < 280):
-        print('cross detected')
+    if show_edge:
+        cv2.imshow('edges', edges)
+    if show_source:
+        cv2.imshow('frame', frame)
 
-    cv2.imshow('edges', edges)
-    cv2.imshow('frame', frame)
+    return cross_mid_point[0], cross_mid_point[1]
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+
+if __name__ == "__main__":
+    choice = input("Mode: \n 1. Photo\n 2. Camera\n")
+    if choice == '1':
+        path = input("Give the path of the photo:")
+        frame = cv2.imread(path)
+        cross_detect(frame, show_source=True, show_edge=True, need_undistort=False)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        exit(0)
+    elif choice == '2':
+        video_number = input("Give the number of the video device:")
+        video = cv2.VideoCapture(int(video_number))
+        img_size = (640, 480)
+        video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
+        video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
+        video.set(cv2.CAP_PROP_FPS, 30)
+
+        while True:
+            _, frame = video.read()
+            cross_detect(frame, show_source=True, show_edge=True, need_undistort=False)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        video.release()
+        cv2.destroyAllWindows()
+        exit(0)
+    else:
+        print('Invalid input')
+        exit(1)
