@@ -51,11 +51,17 @@ python cross_detect.py
 
 相机标定方法可以使用ROS_Camera_Calibration包，也可以使用OpenCV自带的标定方法。
 
-同时，本代码使用的hsv阈值为
+本代码使用的hsv阈值为
 
 ```python
 hsv_low = np.array([108, 36, 141])
 hsv_high = np.array([121, 163, 255])
+```
+
+十字的宽度阈值为
+
+```python
+cross_width = 50
 ```
 
 可以根据自己的需求进行修改。
