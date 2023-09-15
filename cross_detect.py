@@ -2,11 +2,11 @@ import cv2
 import numpy as np
 import undistort
 
-# video = cv2.VideoCapture(1)
-# img_size = (640, 480)
-# video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
-# video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
-# video.set(cv2.CAP_PROP_FPS, 30)
+video = cv2.VideoCapture(1)
+img_size = (640, 480)
+video.set(cv2.CAP_PROP_FRAME_WIDTH, img_size[0])
+video.set(cv2.CAP_PROP_FRAME_HEIGHT, img_size[1])
+video.set(cv2.CAP_PROP_FPS, 30)
 kernel = np.ones((5, 5), np.uint8)
 
 
@@ -53,9 +53,9 @@ def rad2deg(rad):
 
 
 while True:
-    # _, frame = video.read()
-    frame = cv2.imread('./test.jpg')
-    # frame = undistort.undistort(undistort.s908_params, frame)
+    _, frame = video.read()
+    # frame = cv2.imread('./test.jpg')
+    frame = undistort.undistort(undistort.s908_params, frame)
     result = pre_processing(frame)
     edges = cv2.Canny(result, 0, 0, apertureSize=3)
     lines = cv2.HoughLines(edges, 1, np.pi / 180, 75)
